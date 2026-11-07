@@ -97,12 +97,15 @@ COMMON_SKILLS = [
 NAME_STOP_RE = re.compile(r"\s*(?:\||•|Email|E-mail|Mobile|Phone|Tel|LinkedIn|GitHub|Address|[+(]?\d)")
 
 
+DATE_LIKE_RE = re.compile(r"\d{4}\s*-\s*\d{4}|\d{1,2}[./-]\d{1,2}[./-]\d{2,4}")  # "2020 - 2024", "01.09.2020"
+
+
 def _find_phone(text: str) -> str:
     """PHONE_RE also matches year ranges like "2020 - 2024"; skip those and prefer +country numbers."""
     first = ""
     for m in PHONE_RE.finditer(text):
         cand = m.group(0).strip()
-        if len(re.sub(r"\D", "", cand)) < 8 or re.fullmatch(r"\d{4}\s*-\s*\d{4}", cand):
+        if len(re.sub(r"\D", "", cand)) < 8 or DATE_LIKE_RE.fullmatch(cand):
             continue
         if cand.startswith("+"):
             return cand

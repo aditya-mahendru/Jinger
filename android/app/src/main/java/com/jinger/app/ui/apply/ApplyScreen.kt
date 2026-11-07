@@ -94,6 +94,12 @@ fun ApplyScreen(container: AppContainer, jobId: String, onBack: () -> Unit) {
                 Spacer(Modifier.height(8.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     OutlinedButton(onClick = onBack, modifier = Modifier.weight(1f)) { Text("Later") }
+                    if (state.stage == ApplyStage.NO_FORM) {
+                        OutlinedButton(
+                            onClick = { vm.rescan(); webView.value?.let { scanAndFill(it, vm) } },
+                            modifier = Modifier.weight(1f),
+                        ) { Text("Scan form") }
+                    }
                     Button(
                         onClick = { vm.markSubmitted(onBack) },
                         enabled = state.stage != ApplyStage.LOADING_PAGE,
@@ -166,16 +172,27 @@ fun ApplyScreen(container: AppContainer, jobId: String, onBack: () -> Unit) {
     }
 }
 
-private fun scanAndFill(view: WebView, vm: ApplyViewModel) {
+private const val MAX_SCAN_ATTEMPTS = 12
+private const val SCAN_RETRY_MS = 2000L
+
+/**
+ * Collects the form fields and applies the fill plan. ATS pages (Ashby tabs, Greenhouse
+ * "Apply" buttons, slow React renders) often mount the form well after onPageFinished,
+ * so keep re-scanning for a while until a form shows up.
+ */
+private fun scanAndFill(view: WebView, vm: ApplyViewModel, attempt: Int = 1) {
     view.evaluateJavascript(JS_COLLECT) { raw ->
         // evaluateJavascript returns a JSON string literal; unwrap it.
         val json = raw.takeIf { it != "null" }?.let { com.google.gson.Gson().fromJson(it, String::class.java) } ?: "[]"
-        vm.onFieldsCollected(json) { plan ->
+        val found = vm.onFieldsCollected(json) { plan ->
             val needsUser = vm.selectorsJson(vm.state.value.needsUser.map { it.selector })
             view.evaluateJavascript("window.__jinger.fillFields(${vm.toJson(plan)})") {
                 view.evaluateJavascript("window.__jinger.highlight($needsUser)", null)
                 vm.onFilled()
             }
+        }
+        if (!found && attempt < MAX_SCAN_ATTEMPTS && vm.state.value.stage == ApplyStage.NO_FORM) {
+            view.postDelayed({ scanAndFill(view, vm, attempt + 1) }, SCAN_RETRY_MS)
         }
     }
 }
@@ -192,7 +209,7 @@ private fun StatusLine(state: ApplyUiState) {
             if (state.needsUser.isNotEmpty()) append("${state.needsUser.size} highlighted in yellow need you. ")
             append("Review everything, then tap Submit on the page.")
         }
-        ApplyStage.NO_FORM -> "No form found on this page yet — tap the site's Apply button, or fill it in manually."
+        ApplyStage.NO_FORM -> "No form found yet — open the site's Apply/Application section, then tap Scan form."
         ApplyStage.SUBMITTED -> "Marked as applied."
     }
     Text(text, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)

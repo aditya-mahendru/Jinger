@@ -1,4 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
-<vector xmlns:android="http://schemas.android.com/apk/res/android" android:width="108dp" android:height="108dp" android:viewportWidth="108" android:viewportHeight="108">
-    <path android:fillColor="#FFFFFF" android:pathData="M54,30 L62,46 L80,48 L67,61 L70,79 L54,70 L38,79 L41,61 L28,48 L46,46 Z" />
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp" android:height="108dp" android:viewportWidth="108" android:viewportHeight="108">
+    <!-- "J" letterform -->
+    <path android:fillColor="#FFFFFFFF" android:pathData="M51,42 H62 V66 C62,75 56,80 48,80 C42,80 37.5,77 35,71 L44,67 C45,70 46.5,71 48,71 C50,71 51,69.5 51,66 Z" />
+    <!-- heart as the dot of the J -->
+    <path android:fillColor="#FFFFFFFF" android:pathData="M57,38 C54,36 50,33 50,29.5 C50,27 51.8,25.5 53.6,25.5 C55,25.5 56.2,26.3 57,27.6 C57.8,26.3 59,25.5 60.4,25.5 C62.2,25.5 64,27 64,29.5 C64,33 60,36 57,38 Z" />
+    <!-- swipe-right chevron -->
+    <path android:fillColor="#D9FFFFFF" android:pathData="M66,54 l8,-5 v10 z" />
 </vector>

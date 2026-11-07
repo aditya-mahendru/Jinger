@@ -60,19 +60,30 @@ async def rank_jobs(profile: Profile, jobs: list[Job]) -> dict[str, tuple[int, s
         return results
 
     fresh = {j.id: heuristic_score(profile, j) for j in missing}
+    llm_scored: set[str] = set()
     if llm.enabled:
+        # Only the most promising jobs (by heuristic) go to the LLM: the batch is capped so the
+        # prompt stays small enough for local models, and those are the cards the user sees first.
+        shortlist = sorted(missing, key=lambda j: fresh[j.id][0], reverse=True)[:config.LLM_RANK_BATCH]
         summary = profile.model_dump(include={"summary", "skills", "experience", "education", "location"})
         job_blobs = [{"id": j.id, "title": j.title, "company": j.company, "location": j.location,
-                      "description": j.description[:1200]} for j in missing[:config.LLM_RANK_BATCH]]
+                      "description": j.description[:1200]} for j in shortlist]
         data = await llm.complete_json(
             RANK_SYSTEM,
             f"CANDIDATE:\n{json.dumps(summary)}\n\nJOBS:\n{json.dumps(job_blobs)}",
             max_tokens=3000,
         )
+        if data is None:
+            # Model failed/timed out: keep the heuristic scores for this batch so the next feed
+            # load doesn't sit through the same timeout again.
+            llm_scored.update(j.id for j in shortlist)
         for item in (data or {}).get("scores", []):
             jid = item.get("id")
             if jid in fresh and isinstance(item.get("score"), (int, float)):
                 fresh[jid] = (max(0, min(100, int(item["score"]))), str(item.get("reason", ""))[:160])
-    db.save_scores(phash, fresh)
+                llm_scored.add(jid)
+    # Heuristic scores are cheap to recompute; only cache them when no LLM will ever improve them,
+    # otherwise jobs that missed this batch would be stuck with heuristic scores forever.
+    db.save_scores(phash, {k: v for k, v in fresh.items() if k in llm_scored} if llm.enabled else fresh)
     results.update(fresh)
     return results

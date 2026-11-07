@@ -38,7 +38,7 @@ interface JingerApi {
         fun create(baseUrl: String = BuildConfig.BACKEND_URL): JingerApi {
             val client = OkHttpClient.Builder()
                 .connectTimeout(20, TimeUnit.SECONDS)
-                .readTimeout(120, TimeUnit.SECONDS) // LLM calls can be slow
+                .readTimeout(240, TimeUnit.SECONDS) // local-LLM ranking of the first feed page can take minutes on CPU
                 .addInterceptor(HttpLoggingInterceptor().apply { level = HttpLoggingInterceptor.Level.BASIC })
                 .build()
             return Retrofit.Builder()

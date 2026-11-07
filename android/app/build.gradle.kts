@@ -14,8 +14,10 @@ android {
         targetSdk = 34
         versionCode = 1
         versionName = "0.1"
-        // 10.0.2.2 is the host machine from inside the Android emulator.
-        buildConfigField("String", "BACKEND_URL", "\"http://10.0.2.2:8000/\"")
+        // 10.0.2.2 is the host machine from inside the Android emulator. For a physical
+        // device pass your laptop's LAN IP: ./gradlew assembleDebug -PbackendUrl=http://192.168.1.20:8000/
+        val backendUrl = (project.findProperty("backendUrl") as String?) ?: "http://10.0.2.2:8000/"
+        buildConfigField("String", "BACKEND_URL", "\"$backendUrl\"")
     }
 
     buildTypes {

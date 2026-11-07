@@ -101,9 +101,22 @@ The app talks to `http://10.0.2.2:8000/` by default — on the Android emulator
 `--host 0.0.0.0` (or at least reachable on localhost). Cleartext HTTP to that address is
 allowed in `res/xml/network_security_config.xml`.
 
-For a physical device, change `BACKEND_URL` in `android/app/build.gradle.kts` to your
-machine's LAN IP (e.g. `http://192.168.1.20:8000/`) and add that host to the network
-security config.
+### Physical device
+
+1. Put phone and laptop on the same Wi-Fi; find the laptop's LAN IP (`ipconfig getifaddr en0` on macOS,
+   `hostname -I` on Linux, `ipconfig` on Windows).
+2. Start the backend with `--host 0.0.0.0` (as above) and allow port 8000 through the firewall.
+3. Build with that address baked in and install over USB (enable USB debugging on the phone):
+
+   ```bash
+   cd android
+   ./gradlew :app:assembleDebug -PbackendUrl=http://192.168.1.20:8000/
+   adb install -r app/build/outputs/apk/debug/app-debug.apk
+   ```
+
+   Check from the phone's browser that `http://192.168.1.20:8000/health` loads if the feed is empty.
+
+Cleartext HTTP is allowed app-wide in `res/xml/network_security_config.xml` (dev build only).
 
 ## Demo script
 

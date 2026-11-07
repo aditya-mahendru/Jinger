@@ -67,7 +67,7 @@ class ApplyViewModel(
             try {
                 val plan: FillPlanDto = api.fillPlan(FillPlanRequest(profile, job, fields))
                 val auto = plan.fields.filter { !it.needsUser && it.value.isNotBlank() }
-                val manual = plan.fields.filter { it.needsUser }
+                val manual = plan.fields.filter { it.needsUser }.distinctBy { it.selector }
                 _state.update {
                     it.copy(
                         stage = ApplyStage.FILLING,

@@ -21,7 +21,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -217,7 +217,7 @@ private fun NeedsUserSheet(
         Spacer(Modifier.height(12.dp))
         if (items.isEmpty()) Text("All done — nothing left to review.")
         LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            items(items, key = { it.selector }) { item ->
+            itemsIndexed(items, key = { i, it -> "${it.selector}#$i" }) { _, item ->
                 Card(colors = CardDefaults.cardColors(containerColor = Sun.copy(alpha = 0.15f)), shape = RoundedCornerShape(12.dp)) {
                     Column(Modifier.padding(12.dp)) {
                         Text(item.label.ifBlank { item.selector }, fontWeight = FontWeight.SemiBold)

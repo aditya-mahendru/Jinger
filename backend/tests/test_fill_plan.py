@@ -1,6 +1,6 @@
 import asyncio
 
-from app.fill_plan import FillPlanRequest, FormField, build_fill_plan
+from app.fill_plan import FillPlanRequest, FormField, build_fill_plan, deterministic_plan
 from app.profile import Experience, Links, Profile
 from app.sources.common import Job
 
@@ -40,3 +40,19 @@ def test_fill_plan_shape_without_llm():
     for sel in ("#why", "#auth", "#gender"):
         assert by_sel[sel].needs_user is True
         assert by_sel[sel].value == ""
+
+
+def test_third_party_name_fields_are_left_for_the_user():
+    fields = [
+        FormField(selector="#f", label="First Name", type="text"),
+        FormField(selector="#co", label="Company Name", type="text"),       # employment history
+        FormField(selector="#school", label="School Name", type="text"),
+        FormField(selector="#ref", label="Reference Email", type="email"),
+        FormField(selector="#cur", label="Current Company", type="text"),  # about the candidate, OK
+    ]
+    planned, unresolved = deterministic_plan(PROFILE, fields)
+    planned_by_sel = {p.selector: p.value for p in planned}
+    assert planned_by_sel["#f"] == PROFILE.name.split()[0]
+    assert "#co" not in planned_by_sel and "#school" not in planned_by_sel and "#ref" not in planned_by_sel
+    assert {f.selector for f in unresolved} >= {"#co", "#school", "#ref"}
+    assert planned_by_sel.get("#cur") == (PROFILE.experience[0].company if PROFILE.experience else None) or "#cur" in {f.selector for f in unresolved}

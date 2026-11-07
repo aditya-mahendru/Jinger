@@ -45,6 +45,13 @@ class FillPlan(BaseModel):
 
 SKIP_TYPES = {"file", "hidden", "submit", "button", "password"}
 
+# Fields about someone/something other than the candidate (employer, school, referee...).
+# "Company name" must never be filled with the candidate's own name.
+THIRD_PARTY_RE = re.compile(
+    r"\b(company|employer|organi[sz]ation|school|university|college|institution|degree|"
+    r"reference|referee|referr?er|manager|supervisor|recruiter|emergency|contact person)\b", re.I)
+SELF_RE = re.compile(r"\b(current|most recent|latest|your)\b", re.I)
+
 # (regex on label/name/id, profile getter, confidence)
 RULES: list[tuple[re.Pattern, Any, float]] = [
     (re.compile(r"\b(first|given)[\s_-]*name\b", re.I), lambda p: p.name.split()[0] if p.name else "", 0.95),
@@ -90,6 +97,9 @@ def deterministic_plan(profile: Profile, fields: list[FormField]) -> tuple[list[
             continue
         haystack = f"{f.label} {f.name} {f.id}"
         if SENSITIVE_RE.search(haystack) or f.type in {"textarea", "radio", "checkbox"} or (f.type == "select" and f.options):
+            unresolved.append(f)
+            continue
+        if THIRD_PARTY_RE.search(haystack) and not SELF_RE.search(haystack):
             unresolved.append(f)
             continue
         hit = None

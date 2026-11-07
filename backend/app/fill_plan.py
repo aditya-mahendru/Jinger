@@ -45,11 +45,12 @@ class FillPlan(BaseModel):
 
 SKIP_TYPES = {"file", "hidden", "submit", "button", "password"}
 
-# Fields about someone/something other than the candidate (employer, school, referee...).
-# "Company name" must never be filled with the candidate's own name.
+# Fields about another person/organisation (employer, referee, manager...): the generic
+# name/email/phone rules must never fill "Company name" with the candidate's own details.
+# School/degree are not listed: those are filled from the candidate's education by RULES.
 THIRD_PARTY_RE = re.compile(
-    r"\b(company|employer|organi[sz]ation|school|university|college|institution|degree|"
-    r"reference|referee|referr?er|manager|supervisor|recruiter|emergency|contact person)\b", re.I)
+    r"\b(company|employer|organi[sz]ation|reference|referee|referr?er|manager|supervisor|"
+    r"recruiter|emergency|contact person)\b", re.I)
 SELF_RE = re.compile(r"\b(current|most recent|latest|your)\b", re.I)
 
 # (regex on label/name/id, profile getter, confidence)

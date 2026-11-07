@@ -53,6 +53,11 @@ def test_third_party_name_fields_are_left_for_the_user():
     planned, unresolved = deterministic_plan(PROFILE, fields)
     planned_by_sel = {p.selector: p.value for p in planned}
     assert planned_by_sel["#f"] == PROFILE.name.split()[0]
-    assert "#co" not in planned_by_sel and "#school" not in planned_by_sel and "#ref" not in planned_by_sel
-    assert {f.selector for f in unresolved} >= {"#co", "#school", "#ref"}
+    assert "#co" not in planned_by_sel and "#ref" not in planned_by_sel
+    assert {f.selector for f in unresolved} >= {"#co", "#ref"}
+    # School is about the candidate: filled from education when known, otherwise left to the user.
+    if PROFILE.education:
+        assert planned_by_sel["#school"] == PROFILE.education[0].school
+    else:
+        assert "#school" in {f.selector for f in unresolved}
     assert planned_by_sel.get("#cur") == (PROFILE.experience[0].company if PROFILE.experience else None) or "#cur" in {f.selector for f in unresolved}

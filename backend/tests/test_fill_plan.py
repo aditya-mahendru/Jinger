@@ -47,12 +47,15 @@ def test_third_party_name_fields_are_left_for_the_user():
         FormField(selector="#f", label="First Name", type="text"),
         FormField(selector="#co", label="Company Name", type="text"),       # employment history
         FormField(selector="#school", label="School Name", type="text"),
+        FormField(selector="#uni", label="Name of university", type="text"),
+        FormField(selector="#sem", label="School contact email", type="email"),
         FormField(selector="#ref", label="Reference Email", type="email"),
         FormField(selector="#cur", label="Current Company", type="text"),  # about the candidate, OK
     ]
     planned, unresolved = deterministic_plan(PROFILE, fields)
     planned_by_sel = {p.selector: p.value for p in planned}
     assert planned_by_sel["#f"] == PROFILE.name.split()[0]
-    assert "#co" not in planned_by_sel and "#school" not in planned_by_sel and "#ref" not in planned_by_sel
-    assert {f.selector for f in unresolved} >= {"#co", "#school", "#ref"}
+    for sel in ("#co", "#school", "#uni", "#sem", "#ref"):
+        assert sel not in planned_by_sel or planned_by_sel[sel] not in (PROFILE.name, PROFILE.email)
+    assert {f.selector for f in unresolved} >= {"#co", "#ref", "#sem"}
     assert planned_by_sel.get("#cur") == (PROFILE.experience[0].company if PROFILE.experience else None) or "#cur" in {f.selector for f in unresolved}

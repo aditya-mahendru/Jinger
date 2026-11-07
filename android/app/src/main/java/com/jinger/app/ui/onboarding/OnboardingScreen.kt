@@ -92,6 +92,12 @@ fun OnboardingScreen(
 ) {
     val draft by vm.draft.collectAsState()
     val parsing by vm.parsing.collectAsState()
+    var skillText by remember { mutableStateOf("") }
+    var countryText by remember { mutableStateOf("") }
+    val addSkill = { s: String -> vm.update { copy(skills = (skills + s).distinctBy { it.lowercase() }) } }
+    val addCountry = { c: String ->
+        vm.update { copy(workAuthorization = workAuthorization.copy(authorizedIn = (workAuthorization.authorizedIn + c).distinct())) }
+    }
     val error by vm.error.collectAsState()
     val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         uri?.let(vm::importCv)
@@ -130,8 +136,8 @@ fun OnboardingScreen(
 
             Section("Skills") {
                 ChipEditor(
-                    items = draft.skills, placeholder = "Add a skill, e.g. Kotlin",
-                    onAdd = { s -> vm.update { copy(skills = (skills + s).distinctBy { it.lowercase() }) } },
+                    items = draft.skills, text = skillText, onTextChange = { skillText = it }, placeholder = "Add a skill, e.g. Kotlin",
+                    onAdd = addSkill,
                     onRemove = { s -> vm.update { copy(skills = skills - s) } },
                 )
             }
@@ -185,8 +191,8 @@ fun OnboardingScreen(
             Section("Work authorisation") {
                 Text("Where can you work without sponsorship?", style = MaterialTheme.typography.bodyMedium, color = Color.DarkGray)
                 ChipEditor(
-                    items = draft.workAuthorization.authorizedIn, placeholder = "Add a country, e.g. Ireland",
-                    onAdd = { c -> vm.update { copy(workAuthorization = workAuthorization.copy(authorizedIn = (workAuthorization.authorizedIn + c).distinct())) } },
+                    items = draft.workAuthorization.authorizedIn, text = countryText, onTextChange = { countryText = it }, placeholder = "Add a country, e.g. Ireland",
+                    onAdd = addCountry,
                     onRemove = { c -> vm.update { copy(workAuthorization = workAuthorization.copy(authorizedIn = workAuthorization.authorizedIn - c)) } },
                 )
                 Text("Will you need visa sponsorship?", style = MaterialTheme.typography.bodyMedium, color = Color.DarkGray)
@@ -206,7 +212,12 @@ fun OnboardingScreen(
             }
 
             Button(
-                onClick = { vm.save(onDone) },
+                onClick = {
+                    // a half-typed chip must not be lost just because the user tapped Save instead of Add
+                    skillText.pendingChip()?.let(addSkill); skillText = ""
+                    countryText.pendingChip()?.let(addCountry); countryText = ""
+                    vm.save(onDone)
+                },
                 enabled = draft.name.isNotBlank() && draft.email.isNotBlank() && !parsing,
                 shape = RoundedCornerShape(28.dp),
                 modifier = Modifier.fillMaxWidth().height(56.dp),
@@ -366,12 +377,17 @@ private fun formatMonth(millis: Long): String =
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun ChipEditor(items: List<String>, placeholder: String, onAdd: (String) -> Unit, onRemove: (String) -> Unit) {
-    var text by remember { mutableStateOf("") }
+private fun ChipEditor(
+    items: List<String>,
+    text: String,
+    onTextChange: (String) -> Unit,
+    placeholder: String,
+    onAdd: (String) -> Unit,
+    onRemove: (String) -> Unit,
+) {
     val commit = {
-        val v = text.trim().trimEnd(',')
-        if (v.isNotEmpty()) onAdd(v)
-        text = ""
+        text.pendingChip()?.let(onAdd)
+        onTextChange("")
     }
     if (items.isNotEmpty()) {
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -384,7 +400,7 @@ private fun ChipEditor(items: List<String>, placeholder: String, onAdd: (String)
         }
     }
     OutlinedTextField(
-        value = text, onValueChange = { if (it.endsWith(",")) { text = it; commit() } else text = it },
+        value = text, onValueChange = { if (it.endsWith(",")) { it.pendingChip()?.let(onAdd); onTextChange("") } else onTextChange(it) },
         placeholder = { Text(placeholder, color = Color.LightGray) }, singleLine = true, shape = FieldShape,
         modifier = Modifier.fillMaxWidth(),
         keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words, imeAction = ImeAction.Done),
@@ -392,6 +408,8 @@ private fun ChipEditor(items: List<String>, placeholder: String, onAdd: (String)
         trailingIcon = { IconButton(onClick = commit) { Icon(Icons.Default.Add, "Add", tint = Flame) } },
     )
 }
+
+private fun String.pendingChip(): String? = trim().trimEnd(',').takeIf { it.isNotEmpty() }
 
 private inline fun <T> List<T>.replaceAt(index: Int, transform: T.() -> T): List<T> =
     mapIndexed { i, item -> if (i == index) item.transform() else item }

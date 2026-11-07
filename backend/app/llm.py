@@ -1,4 +1,9 @@
-"""One small LLM client so the provider is swappable. Returns parsed JSON or None when no key is set."""
+"""One small LLM client so the provider is swappable.
+
+Returns parsed JSON, or None when no LLM is configured. Configured means either an API key
+(OpenAI/Anthropic/any hosted OpenAI-compatible API) or a base URL for a keyless local server
+such as Ollama (`LLM_BASE_URL=http://localhost:11434/v1`).
+"""
 import json
 import logging
 import re
@@ -21,7 +26,7 @@ class LLMClient:
 
     @property
     def enabled(self) -> bool:
-        return bool(self.api_key)
+        return bool(self.api_key or self.base_url)
 
     async def complete_json(self, system: str, user: str, max_tokens: int = 2000) -> Optional[dict]:
         """Ask for a JSON object. Returns None if the LLM is disabled or the call fails."""
@@ -35,7 +40,8 @@ class LLMClient:
             return None
 
     async def _complete(self, system: str, user: str, max_tokens: int) -> str:
-        async with httpx.AsyncClient(timeout=90) as client:
+        # Local models (Ollama on a laptop CPU) can take a while, especially on first load.
+        async with httpx.AsyncClient(timeout=config.LLM_TIMEOUT) as client:
             if self.provider == "anthropic":
                 resp = await client.post(
                     (self.base_url or "https://api.anthropic.com") + "/v1/messages",
@@ -47,7 +53,7 @@ class LLMClient:
                 return "".join(b.get("text", "") for b in resp.json()["content"])
             resp = await client.post(
                 (self.base_url or "https://api.openai.com/v1") + "/chat/completions",
-                headers={"Authorization": f"Bearer {self.api_key}"},
+                headers={"Authorization": f"Bearer {self.api_key or 'none'}"},
                 json={"model": self.model, "max_tokens": max_tokens, "temperature": 0.2,
                       "response_format": {"type": "json_object"},
                       "messages": [{"role": "system", "content": system}, {"role": "user", "content": user}]},

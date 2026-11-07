@@ -4,6 +4,7 @@ import json
 import re
 
 from . import db
+from . import config
 from .llm import llm
 from .profile import Profile
 from .sources.common import Job
@@ -62,7 +63,7 @@ async def rank_jobs(profile: Profile, jobs: list[Job]) -> dict[str, tuple[int, s
     if llm.enabled:
         summary = profile.model_dump(include={"summary", "skills", "experience", "education", "location"})
         job_blobs = [{"id": j.id, "title": j.title, "company": j.company, "location": j.location,
-                      "description": j.description[:1200]} for j in missing[:25]]
+                      "description": j.description[:1200]} for j in missing[:config.LLM_RANK_BATCH]]
         data = await llm.complete_json(
             RANK_SYSTEM,
             f"CANDIDATE:\n{json.dumps(summary)}\n\nJOBS:\n{json.dumps(job_blobs)}",

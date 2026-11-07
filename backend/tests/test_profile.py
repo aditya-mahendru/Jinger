@@ -13,3 +13,24 @@ def test_heuristic_parse_extracts_contacts_and_links():
     assert p.links.website == ""  # email domain must not be mistaken for a website
     assert {"python", "kotlin"} <= set(p.skills)
     assert p.work_authorization.requires_sponsorship is None  # never guessed
+
+
+def test_llm_nulls_and_numbers_are_tolerated():
+    from app.profile import Profile
+    p = Profile.model_validate({
+        "name": "Ada", "email": None, "summary": None,
+        "links": {"linkedin": None, "website": None, "other": None},
+        "education": [{"school": "UCD", "start": 2020, "end": None}],
+        "experience": None, "skills": None,
+        "work_authorization": {"authorized_in": None, "requires_sponsorship": None, "notes": None},
+    })
+    assert p.email == "" and p.links.website == "" and p.skills == []
+    assert p.education[0].start == "2020" and p.education[0].end == ""
+    assert p.work_authorization.requires_sponsorship is None
+
+
+def test_heuristic_name_strips_glued_contact_details():
+    from app.profile import heuristic_parse, _split_skills
+    text = "Aditya MahendruEmail : a@x.com\nMobile : +353 89 252 6120\nLinkedIn — GitHub\nSummary\n..."
+    assert heuristic_parse(text).name == "Aditya Mahendru"
+    assert _split_skills(["Python", "Languages: TypeScript, SQL, Python"]) == ["Python", "TypeScript", "SQL"]

@@ -113,7 +113,13 @@ def deterministic_plan(profile: Profile, fields: list[FormField]) -> tuple[list[
             unresolved.append(f)
             continue
         hit = None
-        rules = EDUCATION_RULES if EDUCATION_RE.search(haystack) else RULES
+        if EDUCATION_RE.search(haystack):
+            if f.type in {"email", "tel", "url"}:  # e.g. "School contact email": not ours to fill
+                unresolved.append(f)
+                continue
+            rules = EDUCATION_RULES
+        else:
+            rules = RULES
         for pattern, getter, conf in rules:
             if pattern.search(haystack):
                 value = getter(profile)

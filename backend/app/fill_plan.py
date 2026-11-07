@@ -52,6 +52,10 @@ THIRD_PARTY_RE = re.compile(
     r"\b(company|employer|organi[sz]ation|reference|referee|referr?er|manager|supervisor|"
     r"recruiter|emergency|contact person)\b", re.I)
 SELF_RE = re.compile(r"\b(current|most recent|latest|your)\b", re.I)
+# "<Something> name" where <Something> is not a part of the candidate's own name
+# ("School name", "Company name", "Contact name") must not hit the generic name rule.
+OTHER_NAME_RE = re.compile(
+    r"\b(?!(?:full|your|legal|preferred|candidate|applicant|first|last|given|family|sur|middle)\b)\w+\s+name\b", re.I)
 
 # (regex on label/name/id, profile getter, confidence)
 RULES: list[tuple[re.Pattern, Any, float]] = [
@@ -100,7 +104,7 @@ def deterministic_plan(profile: Profile, fields: list[FormField]) -> tuple[list[
         if SENSITIVE_RE.search(haystack) or f.type in {"textarea", "radio", "checkbox"} or (f.type == "select" and f.options):
             unresolved.append(f)
             continue
-        if THIRD_PARTY_RE.search(haystack) and not SELF_RE.search(haystack):
+        if OTHER_NAME_RE.search(f.label) or (THIRD_PARTY_RE.search(haystack) and not SELF_RE.search(haystack)):
             unresolved.append(f)
             continue
         hit = None

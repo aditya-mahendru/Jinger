@@ -27,8 +27,9 @@
       const tag = el.tagName.toLowerCase();
       const type = el.type && el.type !== tag ? `[type="${el.type}"]` : '';
       // Radio/checkbox groups share a name; the value makes each option unique.
-      const value = (el.type === 'radio' || el.type === 'checkbox') && el.value
-        ? `[value="${el.value.replace(/"/g, '\\"')}"]` : '';
+      const valueAttr = el.getAttribute('value');
+      const value = (el.type === 'radio' || el.type === 'checkbox') && valueAttr
+        ? `[value="${valueAttr.replace(/"/g, '\\"')}"]` : '';
       return `${tag}${type}[name="${el.name.replace(/"/g, '\\"')}"]${value}`;
     }
     // Fallback: structural path. Stable enough for a single page session.

@@ -102,7 +102,7 @@ def _find_phone(text: str) -> str:
     first = ""
     for m in PHONE_RE.finditer(text):
         cand = m.group(0).strip()
-        if len(re.sub(r"\D", "", cand)) < 9 or re.fullmatch(r"\d{4}\s*-\s*\d{4}", cand):
+        if len(re.sub(r"\D", "", cand)) < 8 or re.fullmatch(r"\d{4}\s*-\s*\d{4}", cand):
             continue
         if cand.startswith("+"):
             return cand

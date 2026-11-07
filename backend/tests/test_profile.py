@@ -41,3 +41,4 @@ def test_heuristic_ignores_year_ranges_as_phone_and_tel_inside_surnames():
     p = heuristic_parse("Ada Patel\nEmail: ada@x.com\nExperience\nAcme 2020 - 2024\n")
     assert p.name == "Ada Patel" and p.phone == ""
     assert heuristic_parse("Ada Patel\nTel: +353 89 252 6120\n2020 - 2024").phone == "+353 89 252 6120"
+    assert heuristic_parse("Ada Patel\nTel: 22 33 44 55").phone == "22 33 44 55"  # 8-digit local numbers (DK/NO/SG)

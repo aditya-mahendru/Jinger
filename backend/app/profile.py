@@ -83,7 +83,7 @@ Return JSON matching exactly this schema:
  "work_authorization": {"authorized_in": [str], "requires_sponsorship": bool|null, "notes": str}}"""
 
 EMAIL_RE = re.compile(r"[\w.+-]+@[\w-]+\.[\w.-]+")
-PHONE_RE = re.compile(r"(\+?\d[\d\s().-]{8,}\d)")
+PHONE_RE = re.compile(r"(\+?\d[\d \t().-]{8,}\d)")  # no newlines: a number must sit on one line
 URL_RE = re.compile(r"(?:https?://)?(?:www\.)?(linkedin\.com/in/[\w-]+|github\.com/[\w-]+|[\w-]+\.(?:dev|io|me|com)/?[\w/-]*)", re.I)
 COMMON_SKILLS = [
     "python", "java", "kotlin", "swift", "typescript", "javascript", "react", "node", "go", "rust", "c++", "c#",
@@ -93,7 +93,29 @@ COMMON_SKILLS = [
 ]
 
 
-NAME_STOP_RE = re.compile(r"\s*(?:\||•|Email|E-mail|Mobile|Phone|Tel|LinkedIn|GitHub|Address|[+(]?\d)", re.I)
+# Case-sensitive on purpose: "Tel" must not match inside "Patel".
+NAME_STOP_RE = re.compile(r"\s*(?:\||•|Email|E-mail|Mobile|Phone|Tel|LinkedIn|GitHub|Address|[+(]?\d)")
+
+
+def _find_phone(text: str) -> str:
+    """PHONE_RE also matches year ranges like "2020 - 2024"; skip those and prefer +country numbers."""
+    first = ""
+    for m in PHONE_RE.finditer(text):
+        cand = m.group(0).strip()
+        if len(re.sub(r"\D", "", cand)) < 9 or re.fullmatch(r"\d{4}\s*-\s*\d{4}", cand):
+            continue
+        if cand.startswith("+"):
+            return cand
+        first = first or cand
+    return first
+
+
+def _schema_error_summary(exc: Exception) -> str:
+    """Field paths and error types only; never the rejected values (they are CV personal data)."""
+    errors = getattr(exc, "errors", None)
+    if callable(errors):
+        return "; ".join(".".join(map(str, e["loc"])) + ": " + e["type"] for e in errors())
+    return type(exc).__name__
 
 
 def _guess_name(lines: list[str]) -> str:
@@ -122,7 +144,6 @@ def _split_skills(skills: list[str]) -> list[str]:
 def heuristic_parse(text: str) -> Profile:
     lines = [l.strip() for l in text.splitlines() if l.strip()]
     email = EMAIL_RE.search(text)
-    phone = PHONE_RE.search(text)
     links = Links()
     for m in URL_RE.finditer(text):
         if m.start() > 0 and text[m.start() - 1] == "@":
@@ -139,7 +160,7 @@ def heuristic_parse(text: str) -> Profile:
     skills = [s for s in COMMON_SKILLS if re.search(rf"(?<![\w+#]){re.escape(s)}(?![\w+#])", lower)]
     name = _guess_name(lines)
     return Profile(
-        name=name, email=email.group(0) if email else "", phone=phone.group(0).strip() if phone else "",
+        name=name, email=email.group(0) if email else "", phone=_find_phone(text),
         links=links, skills=skills, cv_text=text,
     )
 
@@ -158,5 +179,5 @@ async def parse_cv_text(text: str) -> Profile:
             profile.name = profile.name or fallback.name
             return profile
         except Exception as exc:
-            log.warning("LLM profile did not match the schema, using heuristics: %s", exc)
+            log.warning("LLM profile did not match the schema, using heuristics: %s", _schema_error_summary(exc))
     return heuristic_parse(text)

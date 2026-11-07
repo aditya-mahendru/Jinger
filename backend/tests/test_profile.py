@@ -34,3 +34,10 @@ def test_heuristic_name_strips_glued_contact_details():
     text = "Aditya MahendruEmail : a@x.com\nMobile : +353 89 252 6120\nLinkedIn — GitHub\nSummary\n..."
     assert heuristic_parse(text).name == "Aditya Mahendru"
     assert _split_skills(["Python", "Languages: TypeScript, SQL, Python"]) == ["Python", "TypeScript", "SQL"]
+
+
+def test_heuristic_ignores_year_ranges_as_phone_and_tel_inside_surnames():
+    from app.profile import heuristic_parse
+    p = heuristic_parse("Ada Patel\nEmail: ada@x.com\nExperience\nAcme 2020 - 2024\n")
+    assert p.name == "Ada Patel" and p.phone == ""
+    assert heuristic_parse("Ada Patel\nTel: +353 89 252 6120\n2020 - 2024").phone == "+353 89 252 6120"

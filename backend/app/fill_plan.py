@@ -45,7 +45,25 @@ class FillPlan(BaseModel):
 
 SKIP_TYPES = {"file", "hidden", "submit", "button", "password"}
 
+# Fields about another person/organisation (employer, referee, manager...): the generic
+# name/email/phone rules must never fill "Company name" with the candidate's own details.
+# School/degree are not listed: those are filled from the candidate's education by RULES.
+THIRD_PARTY_RE = re.compile(
+    r"\b(company|employer|organi[sz]ation|reference|referee|referr?er|manager|supervisor|"
+    r"recruiter|emergency|contact person)\b", re.I)
+SELF_RE = re.compile(r"\b(current|most recent|latest|your)\b", re.I)
+# "<Something> name" where <Something> is not a part of the candidate's own name
+# ("School name", "Company name", "Contact name") must not hit the generic name rule.
+# Education fields only ever take education values, never the candidate's contact details.
+EDUCATION_RE = re.compile(r"\b(school|university|college|institution|degree|major|gpa|graduat\w*)\b", re.I)
+OTHER_NAME_RE = re.compile(
+    r"\b(?!(?:full|your|legal|preferred|candidate|applicant|first|last|given|family|sur|middle)\b)\w+\s+name\b", re.I)
+
 # (regex on label/name/id, profile getter, confidence)
+EDUCATION_RULES: list[tuple[re.Pattern, Any, float]] = [
+    (re.compile(r"\b(school|university|college|institution)\b", re.I), lambda p: p.education[0].school if p.education else "", 0.7),
+    (re.compile(r"\bdegree\b", re.I), lambda p: p.education[0].degree if p.education else "", 0.7),
+]
 RULES: list[tuple[re.Pattern, Any, float]] = [
     (re.compile(r"\b(first|given)[\s_-]*name\b", re.I), lambda p: p.name.split()[0] if p.name else "", 0.95),
     (re.compile(r"\b(last|family|sur)[\s_-]*name\b", re.I), lambda p: p.name.split()[-1] if len(p.name.split()) > 1 else "", 0.95),
@@ -58,8 +76,7 @@ RULES: list[tuple[re.Pattern, Any, float]] = [
     (re.compile(r"\b(location|city|where (are you|do you) (based|live)|current address|address)\b", re.I), lambda p: p.location, 0.8),
     (re.compile(r"\b(current|most recent|latest)[\s_-]*(company|employer)\b", re.I), lambda p: p.experience[0].company if p.experience else "", 0.85),
     (re.compile(r"\b(current|most recent|latest)[\s_-]*(title|role|position)\b", re.I), lambda p: p.experience[0].title if p.experience else "", 0.85),
-    (re.compile(r"\b(school|university|college)\b", re.I), lambda p: p.education[0].school if p.education else "", 0.7),
-    (re.compile(r"\bdegree\b", re.I), lambda p: p.education[0].degree if p.education else "", 0.7),
+    *EDUCATION_RULES,
 ]
 SENSITIVE_RE = re.compile(
     r"gender|race|ethnic|veteran|disab|sexual|pronoun|salary|compensation|date of birth|\bdob\b|age\b|"
@@ -92,8 +109,18 @@ def deterministic_plan(profile: Profile, fields: list[FormField]) -> tuple[list[
         if SENSITIVE_RE.search(haystack) or f.type in {"textarea", "radio", "checkbox"} or (f.type == "select" and f.options):
             unresolved.append(f)
             continue
+        if OTHER_NAME_RE.search(f.label) or (THIRD_PARTY_RE.search(haystack) and not SELF_RE.search(haystack)):
+            unresolved.append(f)
+            continue
         hit = None
-        for pattern, getter, conf in RULES:
+        if EDUCATION_RE.search(haystack):
+            if f.type in {"email", "tel", "url"}:  # e.g. "School contact email": not ours to fill
+                unresolved.append(f)
+                continue
+            rules = EDUCATION_RULES
+        else:
+            rules = RULES
+        for pattern, getter, conf in rules:
             if pattern.search(haystack):
                 value = getter(profile)
                 if value:

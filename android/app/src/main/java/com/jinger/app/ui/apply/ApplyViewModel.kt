@@ -49,25 +49,25 @@ class ApplyViewModel(
         if (_state.value.stage == ApplyStage.LOADING_PAGE) _state.update { it.copy(stage = ApplyStage.SCANNING) }
     }
 
-    /** Called with the JSON array returned by autofill.js collectFields(). Returns the plan to apply. */
-    fun onFieldsCollected(json: String, onPlan: (List<FieldPlanDto>) -> Unit) {
+    /** Called with the JSON array returned by autofill.js collectFields(). Returns false if no form was found yet. */
+    fun onFieldsCollected(json: String, onPlan: (List<FieldPlanDto>) -> Unit): Boolean {
         val type = object : TypeToken<List<FormFieldDto>>() {}.type
         val fields: List<FormFieldDto> = runCatching { gson.fromJson<List<FormFieldDto>>(json, type) }.getOrDefault(emptyList())
         if (fields.isEmpty()) {
             _state.update { it.copy(stage = ApplyStage.NO_FORM) }
-            return
+            return false
         }
-        val job = _state.value.job ?: return
+        val job = _state.value.job ?: return false
         val profile = profiles.profile.value ?: run {
             _state.update { it.copy(stage = ApplyStage.REVIEW, error = "No profile saved; fill the form manually.") }
-            return
+            return false
         }
         _state.update { it.copy(stage = ApplyStage.PLANNING, error = null) }
         viewModelScope.launch {
             try {
                 val plan: FillPlanDto = api.fillPlan(FillPlanRequest(profile, job, fields))
                 val auto = plan.fields.filter { !it.needsUser && it.value.isNotBlank() }
-                val manual = plan.fields.filter { it.needsUser }
+                val manual = plan.fields.filter { it.needsUser }.distinctBy { it.selector }
                 _state.update {
                     it.copy(
                         stage = ApplyStage.FILLING,
@@ -82,7 +82,10 @@ class ApplyViewModel(
                 _state.update { it.copy(stage = ApplyStage.REVIEW, error = "Fill plan failed: ${e.message}") }
             }
         }
+        return true
     }
+
+    fun rescan() = _state.update { it.copy(stage = ApplyStage.SCANNING) }
 
     fun onFilled() {
         _state.update { it.copy(stage = ApplyStage.REVIEW, sheetOpen = it.needsUser.isNotEmpty()) }

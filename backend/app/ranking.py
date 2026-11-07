@@ -73,6 +73,10 @@ async def rank_jobs(profile: Profile, jobs: list[Job]) -> dict[str, tuple[int, s
             f"CANDIDATE:\n{json.dumps(summary)}\n\nJOBS:\n{json.dumps(job_blobs)}",
             max_tokens=3000,
         )
+        if data is None:
+            # Model failed/timed out: keep the heuristic scores for this batch so the next feed
+            # load doesn't sit through the same timeout again.
+            llm_scored.update(j.id for j in shortlist)
         for item in (data or {}).get("scores", []):
             jid = item.get("id")
             if jid in fresh and isinstance(item.get("score"), (int, float)):

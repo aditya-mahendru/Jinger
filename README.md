@@ -64,6 +64,27 @@ curl -X POST localhost:8000/jobs/refresh
 
 The provider lives in one class, `app/llm.py::LLMClient`; swap it by changing env vars.
 
+#### Local model with Ollama (no API key)
+
+```bash
+ollama pull qwen2.5:3b          # ~2 GB; good at structured JSON. Alternatives: llama3.2:3b, qwen2.5:7b
+```
+
+`backend/.env`:
+
+```
+LLM_PROVIDER=openai
+LLM_API_KEY=
+LLM_MODEL=qwen2.5:3b
+LLM_BASE_URL=http://localhost:11434/v1
+LLM_RANK_BATCH=8
+LLM_TIMEOUT=180
+```
+
+Ollama speaks the OpenAI chat API, so no code changes are needed. `/health` reports `"llm": true`
+once configured. Small models are slow on CPU: the first ranking/parse call can take a minute,
+and any call that fails or times out falls back to the heuristics, so the app keeps working.
+
 ### Endpoints
 
 | Method | Path | Purpose |
